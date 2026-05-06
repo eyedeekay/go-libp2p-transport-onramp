@@ -23,13 +23,12 @@ These transports integrate seamlessly with libp2p's networking stack, enabling p
 - ✅ Connection wrapping for libp2p upgrader compatibility
 - ✅ Resource management integration
 - ✅ Example programs demonstrating usage
+- ✅ Proper v3 onion address generation from ed25519 keys (SHA3-256 checksum)
 
 ### Known Limitations
-- 🔄 Onion address derivation from ed25519 keys (placeholder implementation at [tor/transport.go#L166](tor/transport.go#L166))
-- 🔄 Garlic32 protocol (code 456) not officially registered in multiaddr - some tests skip
+- 🔄 Garlic32 protocol (code 456) not officially registered in multiaddr - some tests skip when creating garlic32 addresses
 
 ### Future Enhancements
-- ⬜ Proper v3 onion address generation from ed25519 keys
 - ⬜ Register garlic32 protocol in go-multiaddr upstream
 - ⬜ Enhanced error handling and logging
 - ⬜ Performance benchmarks

@@ -2,6 +2,7 @@ package tor
 
 import (
 	"context"
+	"encoding/base32"
 	"fmt"
 	"sync"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/transport"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+	"golang.org/x/crypto/sha3"
 )
 
 // Transport implements the libp2p transport.Transport interface for Tor.
@@ -157,19 +159,59 @@ func (t *Transport) Listen(laddr ma.Multiaddr) (transport.Listener, error) {
 	return l, nil
 }
 
-// getOnionAddress derives the v3 onion address from ed25519 keys
+// getOnionAddress derives the v3 onion address from ed25519 keys.
+// The v3 onion address format is:
+// base32(version || pubkey || checksum) where:
+//   - version is 0x03 (1 byte)
+//   - pubkey is the 32-byte ed25519 public key
+//   - checksum is the first 2 bytes of SHA3-256(".onion checksum" || pubkey || version)
 func getOnionAddress(keys ed25519.KeyPair) string {
-	// The v3 onion address is base32 encoded from:
-	// version (1 byte) || pubkey (32 bytes) || checksum (2 bytes)
-	// But we can use the existing onion ID method if available
-	// For now, we'll use a placeholder - this needs to be properly implemented
-	// TODO: Use proper onion address generation from ed25519 keys
 	if keys == nil {
 		return "unknown"
 	}
-	// This is a simplified version - proper implementation would encode
-	// the public key properly according to Tor spec
-	return "placeholder56charactersonionaddressxxxxxxxxxxxxxxxxxx"
+
+	// Get the public key
+	pubKey := keys.PublicKey()
+	if len(pubKey) != 32 {
+		return "invalid-pubkey-length"
+	}
+
+	// Version byte for v3 onion addresses
+	version := byte(0x03)
+
+	// Calculate checksum: SHA3-256(".onion checksum" || pubkey || version)
+	checksumInput := append([]byte(".onion checksum"), pubKey...)
+	checksumInput = append(checksumInput, version)
+
+	hash := sha3.New256()
+	hash.Write(checksumInput)
+	checksum := hash.Sum(nil)[:2] // First 2 bytes
+
+	// Build the address: version || pubkey || checksum
+	addressBytes := make([]byte, 0, 35)
+	addressBytes = append(addressBytes, version)
+	addressBytes = append(addressBytes, pubKey...)
+	addressBytes = append(addressBytes, checksum...)
+
+	// Encode to base32 (lowercase, no padding)
+	encoder := base32.StdEncoding.WithPadding(base32.NoPadding)
+	encoded := encoder.EncodeToString(addressBytes)
+
+	// Convert to lowercase (Tor uses lowercase for v3 addresses)
+	return toLowerBase32(encoded)
+}
+
+// toLowerBase32 converts base32 string to lowercase
+func toLowerBase32(s string) string {
+	result := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' {
+			result[i] = s[i] + 32 // Convert A-Z to a-z
+		} else {
+			result[i] = s[i]
+		}
+	}
+	return string(result)
 }
 
 // Tor acts as an anonymizing proxy for all connections.

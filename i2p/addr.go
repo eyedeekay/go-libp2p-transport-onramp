@@ -106,29 +106,41 @@ func garlicMultiaddrToString(addr ma.Multiaddr) (string, error) {
 	return dest, nil
 }
 
-// registerGarlicProtocols registers custom garlic protocols with go-multiaddr.
-// This should be called during package initialization.
+// registerGarlicProtocols attempts to check if garlic32 protocol is registered.
+//
+// Note: go-multiaddr v0.16.1 does not provide a public API to register custom
+// protocols at runtime. The garlic32 protocol (code 456) is used internally by
+// this transport but may not be recognized by multiaddr's parsing functions.
+//
+// This means:
+//   - Dial() and Listen() work correctly (they parse addresses internally)
+//   - NewMultiaddr("/garlic32/...") may fail if the protocol isn't registered
+//   - Some tests skip when multiaddr cannot create garlic32 addresses
+//
+// To use garlic32 addresses:
+//  1. Use the transport's internal parsing (this works out of the box)
+//  2. Submit a PR to add garlic32 to go-multiaddr's protocol list
+//  3. Use a forked version of go-multiaddr with garlic32 added
+//
+// The protocol specification:
+//   - Name: "garlic32"
+//   - Code: 456
+//   - Size: -1 (variable length, format: <base32>.b32.i2p)
 func registerGarlicProtocols() error {
 	// Check if garlic32 is already registered
 	protocols, err := ma.ProtocolsWithString("garlic32")
 	if err == nil && len(protocols) > 0 {
-		// Already registered
+		// Already registered - great!
 		return nil
 	}
 
-	// Note: go-multiaddr doesn't provide a public API to register custom protocols
-	// at runtime. The protocols are hardcoded in the library.
-	// For now, we'll work with a workaround or assume the protocols will be
-	// added to the official multiaddr spec.
-
-	// TODO: Either contribute garlic protocols to go-multiaddr or implement
-	// a custom protocol registry
-
-	return nil
+	// Protocol not registered. This is expected with standard go-multiaddr.
+	// The transport will still work, but some multiaddr operations may fail.
+	return fmt.Errorf("garlic32 protocol (code 456) not registered in go-multiaddr")
 }
 
 func init() {
-	// Attempt to register garlic protocols
-	// Errors are ignored as the protocols might already be registered
+	// Check protocol registration status
+	// This is informational only - the transport works regardless
 	_ = registerGarlicProtocols()
 }
