@@ -30,6 +30,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+*.private
+*keys
 
 /i2p-example
 /tor-example
