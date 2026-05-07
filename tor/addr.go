@@ -31,7 +31,7 @@ func parseOnionMultiaddr(addr ma.Multiaddr) (string, error) {
 			// Get the value for this component
 			val, err := comp.ValueForProtocol(P_ONION3)
 			if err != nil {
-				return "", fmt.Errorf("failed to get onion3 value: %w", err)
+				return "", fmt.Errorf("tor: failed to get onion3 value: %w", err)
 			}
 			onionValue = val
 			break
@@ -77,12 +77,4 @@ func isOnionMultiaddr(addr ma.Multiaddr) bool {
 		}
 	}
 	return false
-}
-
-// onionMultiaddrToString converts a multiaddr to a human-readable onion address string.
-func onionMultiaddrToString(addr ma.Multiaddr) (string, error) {
-	if !isOnionMultiaddr(addr) {
-		return "", fmt.Errorf("not an onion multiaddr")
-	}
-	return parseOnionMultiaddr(addr)
 }

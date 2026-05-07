@@ -7,8 +7,23 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// Note: garlic32 and garlic64 protocols may not be officially registered in go-multiaddr.
-// We'll need to register them or use a workaround. For now, we'll define custom protocol codes.
+// Note: garlic32 protocol (code 456) is not officially registered in go-multiaddr.
+//
+// go-multiaddr v0.16.1 does not provide a public API to register custom
+// protocols at runtime. This means:
+//   - Transport Dial() and Listen() work correctly (they parse addresses internally)
+//   - ma.NewMultiaddr("/garlic32/...") may fail if the protocol isn't registered
+//   - Some tests skip when multiaddr cannot create garlic32 addresses
+//
+// To use garlic32 addresses in multiaddr operations:
+//  1. Use the transport's internal parsing (works out of the box)
+//  2. Submit a PR to add garlic32 to go-multiaddr's protocol list
+//  3. Use a forked version of go-multiaddr with garlic32 added
+//
+// Protocol specification:
+//   - Name: "garlic32"
+//   - Code: 456
+//   - Size: -1 (variable length, format: <base32>.b32.i2p)
 const (
 	// P_GARLIC32 is the protocol code for garlic32 addresses (base32 I2P addresses)
 	// This is a custom protocol code that should be registered with multiaddr
@@ -34,7 +49,7 @@ func parseGarlicMultiaddr(addr ma.Multiaddr) (string, int, error) {
 			// Get the value for this component
 			val, err := comp.ValueForProtocol(P_GARLIC32)
 			if err != nil {
-				return "", 0, fmt.Errorf("failed to get garlic32 value: %w", err)
+				return "", 0, fmt.Errorf("i2p: failed to get garlic32 value: %w", err)
 			}
 			garlicValue = val
 			break
@@ -87,60 +102,4 @@ func isGarlicMultiaddr(addr ma.Multiaddr) bool {
 		}
 	}
 	return false
-}
-
-// garlicMultiaddrToString converts a multiaddr to a human-readable garlic address string.
-func garlicMultiaddrToString(addr ma.Multiaddr) (string, error) {
-	if !isGarlicMultiaddr(addr) {
-		return "", fmt.Errorf("not a garlic multiaddr")
-	}
-
-	dest, port, err := parseGarlicMultiaddr(addr)
-	if err != nil {
-		return "", err
-	}
-
-	if port > 0 {
-		return fmt.Sprintf("%s:%d", dest, port), nil
-	}
-	return dest, nil
-}
-
-// registerGarlicProtocols attempts to check if garlic32 protocol is registered.
-//
-// Note: go-multiaddr v0.16.1 does not provide a public API to register custom
-// protocols at runtime. The garlic32 protocol (code 456) is used internally by
-// this transport but may not be recognized by multiaddr's parsing functions.
-//
-// This means:
-//   - Dial() and Listen() work correctly (they parse addresses internally)
-//   - NewMultiaddr("/garlic32/...") may fail if the protocol isn't registered
-//   - Some tests skip when multiaddr cannot create garlic32 addresses
-//
-// To use garlic32 addresses:
-//  1. Use the transport's internal parsing (this works out of the box)
-//  2. Submit a PR to add garlic32 to go-multiaddr's protocol list
-//  3. Use a forked version of go-multiaddr with garlic32 added
-//
-// The protocol specification:
-//   - Name: "garlic32"
-//   - Code: 456
-//   - Size: -1 (variable length, format: <base32>.b32.i2p)
-func registerGarlicProtocols() error {
-	// Check if garlic32 is already registered
-	protocols, err := ma.ProtocolsWithString("garlic32")
-	if err == nil && len(protocols) > 0 {
-		// Already registered - great!
-		return nil
-	}
-
-	// Protocol not registered. This is expected with standard go-multiaddr.
-	// The transport will still work, but some multiaddr operations may fail.
-	return fmt.Errorf("garlic32 protocol (code 456) not registered in go-multiaddr")
-}
-
-func init() {
-	// Check protocol registration status
-	// This is informational only - the transport works regardless
-	_ = registerGarlicProtocols()
 }

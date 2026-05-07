@@ -38,7 +38,7 @@ func NewTransport(upgrader transport.Upgrader, rcmgr network.ResourceManager) (*
 	// Use default SAM address (127.0.0.1:7656)
 	garlic, err := onramp.NewGarlic("libp2p-i2p", onramp.SAM_ADDR, onramp.OPT_DEFAULTS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create garlic service: %w", err)
+		return nil, fmt.Errorf("i2p: failed to create garlic service: %w", err)
 	}
 
 	t := &Transport{
