@@ -27,16 +27,65 @@ type Transport struct {
 	listeners   map[string]*listener
 }
 
-// NewTransport creates a new I2P transport.
-// The transport will use onramp's default configuration with minimal options exposed.
+// TransportConfig holds configuration options for the I2P transport.
+type TransportConfig struct {
+	// ServiceName is the identifier for the I2P destination.
+	// If empty, defaults to "libp2p-i2p".
+	ServiceName string
+
+	// SAMAddr is the address of the SAM bridge.
+	// If empty, defaults to "127.0.0.1:7656".
+	SAMAddr string
+
+	// Options configures I2P tunnel parameters.
+	// Common values: onramp.OPT_DEFAULTS (balanced), onramp.OPT_HUGE (more tunnels).
+	// If nil, defaults to onramp.OPT_DEFAULTS.
+	Options []string
+}
+
+// DefaultTransportConfig returns the default configuration for I2P transport.
+func DefaultTransportConfig() *TransportConfig {
+	return &TransportConfig{
+		ServiceName: "libp2p-i2p",
+		SAMAddr:     onramp.SAM_ADDR,
+		Options:     onramp.OPT_DEFAULTS,
+	}
+}
+
+// NewTransport creates a new I2P transport with default configuration.
+// For custom configuration, use NewTransportWithOptions.
 func NewTransport(upgrader transport.Upgrader, rcmgr network.ResourceManager) (*Transport, error) {
+	return NewTransportWithOptions(upgrader, rcmgr, nil)
+}
+
+// NewTransportWithOptions creates a new I2P transport with custom configuration.
+// If config is nil, default configuration is used.
+func NewTransportWithOptions(upgrader transport.Upgrader, rcmgr network.ResourceManager, config *TransportConfig) (*Transport, error) {
 	if upgrader == nil {
 		return nil, fmt.Errorf("upgrader cannot be nil")
 	}
 
-	// Create onramp.Garlic with default configuration
-	// Use default SAM address (127.0.0.1:7656)
-	garlic, err := onramp.NewGarlic("libp2p-i2p", onramp.SAM_ADDR, onramp.OPT_DEFAULTS)
+	// Use default config if none provided
+	if config == nil {
+		config = DefaultTransportConfig()
+	}
+
+	// Set defaults for empty fields
+	serviceName := config.ServiceName
+	if serviceName == "" {
+		serviceName = "libp2p-i2p"
+	}
+	samAddr := config.SAMAddr
+	if samAddr == "" {
+		samAddr = onramp.SAM_ADDR
+	}
+	options := config.Options
+	if options == nil {
+		options = onramp.OPT_DEFAULTS
+	}
+
+	// Create onramp.Garlic with configuration
+	garlic, err := onramp.NewGarlic(serviceName, samAddr, options)
 	if err != nil {
 		return nil, fmt.Errorf("i2p: failed to create garlic service: %w", err)
 	}

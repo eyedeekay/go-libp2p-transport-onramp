@@ -68,14 +68,49 @@ go test -v -tags=integration ./...
 ### Examples
 
 See [examples/](examples/) directory for working examples:
-- [examples/tor-example/](examples/tor-example/) - Tor transport initialization
-- [examples/i2p-example/](examples/i2p-example/) - I2P transport initialization
+- [examples/tor-example/](examples/tor-example/) - Basic Tor transport initialization
+- [examples/tor-config-example/](examples/tor-config-example/) - Tor transport with custom configuration
+- [examples/i2p-example/](examples/i2p-example/) - Basic I2P transport initialization
+- [examples/i2p-config-example/](examples/i2p-config-example/) - I2P transport with custom configuration
 
 Run examples:
 ```bash
-go run ./examples/tor-example  # Requires Tor daemon
-go run ./examples/i2p-example  # Requires I2P router with SAM
+go run ./examples/tor-example         # Requires Tor daemon
+go run ./examples/tor-config-example  # Requires Tor daemon
+go run ./examples/i2p-example         # Requires I2P router with SAM
+go run ./examples/i2p-config-example  # Requires I2P router with SAM
 ```
+
+## Configuration
+
+Both transports support custom configuration through `NewTransportWithOptions` functions while maintaining backward compatibility with the original `NewTransport` API.
+
+### Tor Configuration
+
+```go
+config := &tor.TransportConfig{
+    ServiceName: "my-custom-libp2p-service", // Custom onion service name (default: "libp2p-tor")
+}
+
+transport, err := tor.NewTransportWithOptions(upgrader, rcmgr, config)
+```
+
+### I2P Configuration
+
+```go
+config := &i2p.TransportConfig{
+    ServiceName: "my-custom-i2p-service",   // Custom I2P tunnel name (default: "libp2p-i2p")
+    SAMAddr:     "127.0.0.1:7656",          // SAM bridge address (default: "127.0.0.1:7656")
+    Options:     onramp.OPT_HUGE,           // Tunnel options (default: onramp.OPT_DEFAULTS)
+}
+
+transport, err := i2p.NewTransportWithOptions(upgrader, rcmgr, config)
+```
+
+**Tunnel Options:**
+- `onramp.OPT_DEFAULTS` - Balanced performance (2 inbound, 2 outbound tunnels)
+- `onramp.OPT_HUGE` - High performance (6 inbound, 6 outbound tunnels)
+- Custom options as []string (see [onramp documentation](https://pkg.go.dev/github.com/go-i2p/onramp))
 
 ## Usage
 

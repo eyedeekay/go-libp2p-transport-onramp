@@ -28,15 +28,46 @@ type Transport struct {
 	listeners   map[string]*listener
 }
 
-// NewTransport creates a new Tor transport.
-// The transport will use onramp's default configuration with minimal options exposed.
+// TransportConfig holds configuration options for the Tor transport.
+type TransportConfig struct {
+	// ServiceName is the identifier for the onion service.
+	// If empty, defaults to "libp2p-tor".
+	ServiceName string
+}
+
+// DefaultTransportConfig returns the default configuration for Tor transport.
+func DefaultTransportConfig() *TransportConfig {
+	return &TransportConfig{
+		ServiceName: "libp2p-tor",
+	}
+}
+
+// NewTransport creates a new Tor transport with default configuration.
+// For custom configuration, use NewTransportWithOptions.
 func NewTransport(upgrader transport.Upgrader, rcmgr network.ResourceManager) (*Transport, error) {
+	return NewTransportWithOptions(upgrader, rcmgr, nil)
+}
+
+// NewTransportWithOptions creates a new Tor transport with custom configuration.
+// If config is nil, default configuration is used.
+func NewTransportWithOptions(upgrader transport.Upgrader, rcmgr network.ResourceManager, config *TransportConfig) (*Transport, error) {
 	if upgrader == nil {
 		return nil, fmt.Errorf("upgrader cannot be nil")
 	}
 
-	// Create onramp.Onion with default configuration
-	onion, err := onramp.NewOnion("libp2p-tor")
+	// Use default config if none provided
+	if config == nil {
+		config = DefaultTransportConfig()
+	}
+
+	// Set default service name if empty
+	serviceName := config.ServiceName
+	if serviceName == "" {
+		serviceName = "libp2p-tor"
+	}
+
+	// Create onramp.Onion with configuration
+	onion, err := onramp.NewOnion(serviceName)
 	if err != nil {
 		return nil, fmt.Errorf("tor: failed to create onion service: %w", err)
 	}
