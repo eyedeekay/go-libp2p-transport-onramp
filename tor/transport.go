@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/cretz/bine/torutil/ed25519"
 	"github.com/go-i2p/onramp"
@@ -26,6 +27,9 @@ type Transport struct {
 
 	listenersMu sync.RWMutex
 	listeners   map[string]*listener
+
+	connMu sync.RWMutex
+	conns  map[transport.CapableConn]struct{}
 }
 
 // TransportConfig holds configuration options for the Tor transport.
@@ -77,9 +81,47 @@ func NewTransportWithOptions(upgrader transport.Upgrader, rcmgr network.Resource
 		upgrader:  upgrader,
 		rcmgr:     rcmgr,
 		listeners: make(map[string]*listener),
+		conns:     make(map[transport.CapableConn]struct{}),
 	}
 
 	return t, nil
+}
+
+// trackedConn wraps a connection to enable lifecycle tracking.
+// When the connection is closed, it automatically removes itself from the transport's registry.
+type trackedConn struct {
+	transport.CapableConn
+	onClose func()
+	once    sync.Once
+}
+
+// Close closes the underlying connection and calls the cleanup callback.
+func (c *trackedConn) Close() error {
+	err := c.CapableConn.Close()
+	c.once.Do(c.onClose)
+	return err
+}
+
+// trackConnection registers a connection in the transport's registry and returns a wrapper
+// that will automatically unregister the connection when closed.
+func (t *Transport) trackConnection(conn transport.CapableConn) transport.CapableConn {
+	t.connMu.Lock()
+	t.conns[conn] = struct{}{}
+	t.connMu.Unlock()
+
+	return &trackedConn{
+		CapableConn: conn,
+		onClose: func() {
+			t.removeConnection(conn)
+		},
+	}
+}
+
+// removeConnection removes a connection from the transport's registry.
+func (t *Transport) removeConnection(conn transport.CapableConn) {
+	t.connMu.Lock()
+	delete(t.conns, conn)
+	t.connMu.Unlock()
 }
 
 // Dial dials a remote peer over Tor.
@@ -142,7 +184,10 @@ func (t *Transport) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.ID) (tr
 		return nil, fmt.Errorf("tor: upgrade failed: %w", err)
 	}
 
-	return conn, nil
+	// Track the connection for proper cleanup on transport Close
+	wrappedConn := t.trackConnection(conn)
+
+	return wrappedConn, nil
 }
 
 // CanDial returns true if this transport can dial the given multiaddr.
@@ -283,6 +328,32 @@ func (t *Transport) Close() error {
 	// Close all listeners
 	for _, l := range listeners {
 		l.Close()
+	}
+
+	// Close all active connections
+	t.connMu.Lock()
+	conns := make([]transport.CapableConn, 0, len(t.conns))
+	for conn := range t.conns {
+		conns = append(conns, conn)
+	}
+	t.connMu.Unlock()
+
+	// Best-effort close of all connections
+	for _, conn := range conns {
+		conn.Close()
+	}
+
+	// Wait briefly for connections to close gracefully
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		t.connMu.RLock()
+		remaining := len(t.conns)
+		t.connMu.RUnlock()
+
+		if remaining == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	// Close the onion service

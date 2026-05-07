@@ -1,5 +1,10 @@
 # go-libp2p-transport-onramp
 
+[![CI](https://github.com/go-i2p/go-libp2p-transport-onramp/actions/workflows/ci.yml/badge.svg)](https://github.com/go-i2p/go-libp2p-transport-onramp/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/go-i2p/go-libp2p-transport-onramp)](https://goreportcard.com/report/github.com/go-i2p/go-libp2p-transport-onramp)
+[![GoDoc](https://pkg.go.dev/badge/github.com/go-i2p/go-libp2p-transport-onramp)](https://pkg.go.dev/github.com/go-i2p/go-libp2p-transport-onramp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 libp2p transports written around the go-i2p/onramp API
 
 ## Overview
@@ -32,7 +37,7 @@ These transports integrate seamlessly with libp2p's networking stack, enabling p
 - ⬜ Register garlic32 protocol in go-multiaddr upstream
 - ⬜ Enhanced error handling and logging
 - ⬜ Performance benchmarks
-- ⬜ CI/CD setup
+- ✅ CI/CD setup (GitHub Actions with test/lint/build workflows, Dependabot for dependency updates)
 
 ## Features (Planned)
 

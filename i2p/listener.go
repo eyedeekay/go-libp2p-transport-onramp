@@ -51,7 +51,10 @@ func (l *listener) Accept() (transport.CapableConn, error) {
 		return nil, fmt.Errorf("i2p: upgrade failed: %w", err)
 	}
 
-	return conn, nil
+	// Track the connection for proper cleanup on transport Close
+	wrappedConn := l.transport.trackConnection(conn)
+
+	return wrappedConn, nil
 }
 
 // Close closes the listener.
