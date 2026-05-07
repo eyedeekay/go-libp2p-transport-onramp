@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -14,8 +13,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	// Create custom I2P configuration
 	// Example: Use a non-standard SAM address and higher tunnel count
 	config := &i2p.TransportConfig{
@@ -43,6 +40,4 @@ func main() {
 	fmt.Printf("Options: OPT_HUGE (high performance)\n")
 	fmt.Printf("Peer ID: %s\n", h.ID())
 	fmt.Printf("\nThe host can now dial to garlic addresses.\n")
-
-	_ = ctx
 }

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -13,8 +12,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	// Create libp2p host with Tor transport
 	log.Println("Creating libp2p host with Tor transport...")
 	h, err := libp2p.New(
@@ -31,6 +28,4 @@ func main() {
 	fmt.Printf("\n=== Tor Transport Initialized ===\n")
 	fmt.Printf("Peer ID: %s\n", h.ID())
 	fmt.Printf("\nThe host can now dial to onion addresses.\n")
-
-	_ = ctx
 }

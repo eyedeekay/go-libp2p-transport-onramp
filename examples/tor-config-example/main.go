@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -13,8 +12,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	// Create custom Tor configuration
 	config := &tor.TransportConfig{
 		ServiceName: "my-custom-libp2p-service",
@@ -37,6 +34,4 @@ func main() {
 	fmt.Printf("Service Name: %s\n", config.ServiceName)
 	fmt.Printf("Peer ID: %s\n", h.ID())
 	fmt.Printf("\nThe host can now dial to onion addresses.\n")
-
-	_ = ctx
 }

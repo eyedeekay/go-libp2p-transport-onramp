@@ -75,15 +75,30 @@ go test -v -tags=integration ./...
 See [examples/](examples/) directory for working examples:
 - [examples/tor-example/](examples/tor-example/) - Basic Tor transport initialization
 - [examples/tor-config-example/](examples/tor-config-example/) - Tor transport with custom configuration
+- [examples/tor-peer-example/](examples/tor-peer-example/) - **Peer-to-peer communication demo** (listener/dialer)
 - [examples/i2p-example/](examples/i2p-example/) - Basic I2P transport initialization
 - [examples/i2p-config-example/](examples/i2p-config-example/) - I2P transport with custom configuration
+- [examples/i2p-peer-example/](examples/i2p-peer-example/) - **Peer-to-peer communication demo** (listener/dialer)
 
-Run examples:
+Run basic examples:
 ```bash
 go run ./examples/tor-example         # Requires Tor daemon
 go run ./examples/tor-config-example  # Requires Tor daemon
 go run ./examples/i2p-example         # Requires I2P router with SAM
 go run ./examples/i2p-config-example  # Requires I2P router with SAM
+```
+
+Run peer-to-peer examples:
+```bash
+# Terminal 1: Start listener
+go run ./examples/tor-peer-example    # Copy the displayed multiaddr
+
+# Terminal 2: Connect to listener
+go run ./examples/tor-peer-example <multiaddr-from-terminal-1>
+
+# Same for I2P:
+go run ./examples/i2p-peer-example    # Listener mode
+go run ./examples/i2p-peer-example <multiaddr>  # Dialer mode
 ```
 
 ## Configuration

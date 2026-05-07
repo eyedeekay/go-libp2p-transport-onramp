@@ -4,14 +4,18 @@
 package i2p_test
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"testing"
 	"time"
 
 	"github.com/go-i2p/go-libp2p-transport-onramp/i2p"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/transport"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // TestI2PTransportIntegration verifies the I2P transport can be created
@@ -19,9 +23,6 @@ import (
 //
 // Prerequisites: I2P router running with SAM bridge on localhost:7656
 func TestI2PTransportIntegration(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	// Create host with I2P transport
 	h, err := libp2p.New(
 		libp2p.Transport(func(upgrader transport.Upgrader, rcmgr network.ResourceManager) (transport.Transport, error) {
@@ -35,8 +36,6 @@ func TestI2PTransportIntegration(t *testing.T) {
 	defer h.Close()
 
 	t.Logf("Successfully created host %s with I2P transport", h.ID())
-
-	_ = ctx
 }
 
 // TestI2PTransportCreation tests creating an I2P transport directly
@@ -76,4 +75,145 @@ func TestI2PTransportCreation(t *testing.T) {
 	defer h2.Close()
 
 	t.Log("I2P transport created and properties verified successfully")
+}
+
+// TestI2PEndToEndCommunication tests peer-to-peer communication over I2P
+//
+// Prerequisites: I2P router running with SAM bridge on localhost:7656
+func TestI2PEndToEndCommunication(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	const protocolID = "/test-i2p/1.0.0"
+	const testMessage = "Hello from I2P test"
+	const responseMessage = "Response from I2P test"
+
+	// Channel to signal when listener receives a message
+	messageReceived := make(chan string, 1)
+
+	// Create listener host with I2P transport
+	listenAddr, err := ma.NewMultiaddr("/garlic32/0.0.0.0:0")
+	if err != nil {
+		t.Fatalf("Failed to create listen address: %v", err)
+	}
+
+	listener, err := libp2p.New(
+		libp2p.Transport(func(upgrader transport.Upgrader, rcmgr network.ResourceManager) (transport.Transport, error) {
+			return i2p.NewTransport(upgrader, rcmgr)
+		}),
+		libp2p.ListenAddrs(listenAddr),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create listener host: %v", err)
+	}
+	defer listener.Close()
+
+	// Set up stream handler on listener
+	listener.SetStreamHandler(protocolID, func(s network.Stream) {
+		defer s.Close()
+		t.Logf("Listener: Received connection from peer %s", s.Conn().RemotePeer())
+
+		// Read message
+		reader := bufio.NewReader(s)
+		msg, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			t.Errorf("Listener: Failed to read message: %v", err)
+			return
+		}
+		t.Logf("Listener: Received message: %s", msg)
+		messageReceived <- msg
+
+		// Send response
+		if _, err := s.Write([]byte(responseMessage + "\n")); err != nil {
+			t.Errorf("Listener: Failed to write response: %v", err)
+		}
+		t.Log("Listener: Sent response")
+	})
+
+	// Get listener's addresses
+	addrs := listener.Addrs()
+	if len(addrs) == 0 {
+		t.Fatal("Listener has no addresses")
+	}
+	t.Logf("Listener ready at: %s", addrs[0])
+	listenerPeerAddr := addrs[0].Encapsulate(ma.StringCast("/p2p/" + listener.ID().String()))
+	t.Logf("Listener full address: %s", listenerPeerAddr)
+
+	// Create dialer host with I2P transport
+	dialer, err := libp2p.New(
+		libp2p.Transport(func(upgrader transport.Upgrader, rcmgr network.ResourceManager) (transport.Transport, error) {
+			return i2p.NewTransport(upgrader, rcmgr)
+		}),
+		libp2p.NoListenAddrs,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create dialer host: %v", err)
+	}
+	defer dialer.Close()
+
+	t.Logf("Dialer peer ID: %s", dialer.ID())
+
+	// Parse listener's peer info from multiaddr
+	addrInfo, err := peer.AddrInfoFromP2pAddr(listenerPeerAddr)
+	if err != nil {
+		t.Fatalf("Failed to parse peer address: %v", err)
+	}
+
+	// Connect dialer to listener
+	t.Log("Dialer: Connecting to listener over I2P (this may take a minute)...")
+	connectCtx, connectCancel := context.WithTimeout(ctx, 90*time.Second)
+	defer connectCancel()
+
+	if err := dialer.Connect(connectCtx, *addrInfo); err != nil {
+		t.Fatalf("Dialer: Failed to connect: %v", err)
+	}
+	t.Log("Dialer: Connected successfully")
+
+	// Open stream from dialer to listener
+	stream, err := dialer.NewStream(ctx, listener.ID(), protocolID)
+	if err != nil {
+		t.Fatalf("Dialer: Failed to open stream: %v", err)
+	}
+	defer stream.Close()
+
+	t.Log("Dialer: Stream opened")
+
+	// Send message
+	if _, err := stream.Write([]byte(testMessage + "\n")); err != nil {
+		t.Fatalf("Dialer: Failed to send message: %v", err)
+	}
+	t.Logf("Dialer: Sent message: %s", testMessage)
+
+	// Read response
+	reader := bufio.NewReader(stream)
+	response, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		t.Fatalf("Dialer: Failed to read response: %v", err)
+	}
+	t.Logf("Dialer: Received response: %s", response)
+
+	// Wait for listener to receive message
+	select {
+	case msg := <-messageReceived:
+		if msg != testMessage+"\n" {
+			t.Errorf("Message mismatch: expected %q, got %q", testMessage+"\n", msg)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("Timeout waiting for listener to receive message")
+	}
+
+	// Verify connection properties
+	conns := dialer.Network().ConnsToPeer(listener.ID())
+	if len(conns) == 0 {
+		t.Fatal("No connections found between peers")
+	}
+
+	conn := conns[0]
+	t.Logf("Connection established:")
+	t.Logf("  Local peer: %s", conn.LocalPeer())
+	t.Logf("  Remote peer: %s", conn.RemotePeer())
+	t.Logf("  Local addr: %s", conn.LocalMultiaddr())
+	t.Logf("  Remote addr: %s", conn.RemoteMultiaddr())
+
+	t.Log("End-to-end communication test passed!")
 }
