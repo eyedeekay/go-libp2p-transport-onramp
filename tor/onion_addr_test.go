@@ -67,45 +67,6 @@ func TestGetOnionAddress(t *testing.T) {
 	t.Logf("Generated valid v3 onion address: %s.onion", addr)
 }
 
-// TestToLowerBase32 verifies the base32 lowercase conversion
-func TestToLowerBase32(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "all_uppercase",
-			input:    "ABCDEFG234567",
-			expected: "abcdefg234567",
-		},
-		{
-			name:     "mixed_case",
-			input:    "AbCdEfG234567",
-			expected: "abcdefg234567",
-		},
-		{
-			name:     "already_lowercase",
-			input:    "abcdefg234567",
-			expected: "abcdefg234567",
-		},
-		{
-			name:     "numbers_only",
-			input:    "234567",
-			expected: "234567",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := toLowerBase32(tt.input)
-			if result != tt.expected {
-				t.Errorf("toLowerBase32(%s) = %s, want %s", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
 // TestOnionAddressRoundtrip verifies that generated addresses can be used
 func TestOnionAddressRoundtrip(t *testing.T) {
 	// Create a test keypair

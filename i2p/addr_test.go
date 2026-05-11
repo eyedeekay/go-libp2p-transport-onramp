@@ -178,8 +178,8 @@ func TestProtocols(t *testing.T) {
 		t.Errorf("Protocols() returned %d protocols, want 1", len(protocols))
 	}
 
-	if protocols[0] != P_GARLIC32 {
-		t.Errorf("Protocols()[0] = %d, want %d (P_GARLIC32)", protocols[0], P_GARLIC32)
+	if protocols[0] != PGarlic32 {
+		t.Errorf("Protocols()[0] = %d, want %d (P_GARLIC32)", protocols[0], PGarlic32)
 	}
 }
 

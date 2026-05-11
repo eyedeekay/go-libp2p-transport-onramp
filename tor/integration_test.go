@@ -1,6 +1,23 @@
 //go:build integration
 // +build integration
 
+// Package tor_test contains integration tests for the Tor transport.
+//
+// Prerequisites:
+//   - Tor daemon running on localhost:9050 (default SOCKS port)
+//   - Install: apt-get install tor (Linux) or brew install tor (macOS)
+//   - Start: systemctl start tor or tor
+//
+// To run these tests:
+//
+//	go test -v -tags=integration ./tor
+//
+// What these tests validate:
+//   - Transport creation connects to Tor daemon
+//   - Listener creates valid v3 onion addresses
+//   - End-to-end peer-to-peer communication over Tor
+//   - Connection upgrade (security + multiplexing) works through Tor
+//   - Message passing between peers via Tor hidden services
 package tor_test
 
 import (

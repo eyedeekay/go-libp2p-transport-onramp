@@ -25,9 +25,9 @@ import (
 //   - Code: 456
 //   - Size: -1 (variable length, format: <base32>.b32.i2p)
 const (
-	// P_GARLIC32 is the protocol code for garlic32 addresses (base32 I2P addresses)
+	// PGarlic32 is the protocol code for garlic32 addresses (base32 I2P addresses)
 	// This is a custom protocol code that should be registered with multiaddr
-	P_GARLIC32 = 456 // Placeholder - needs official registration or local registration
+	PGarlic32 = 456 // Placeholder - needs official registration or local registration
 )
 
 // parseGarlicMultiaddr extracts the I2P destination from a multiaddr.
@@ -38,16 +38,22 @@ func parseGarlicMultiaddr(addr ma.Multiaddr) (string, int, error) {
 		return "", 0, fmt.Errorf("multiaddr is nil")
 	}
 
-	// Split the multiaddr into components
+	// Split the multiaddr into components. A multiaddr like /garlic32/abc.b32.i2p/tcp/456
+	// becomes separate components: [/garlic32/abc.b32.i2p, /tcp/456]
 	components := ma.Split(addr)
 
-	// Find the garlic32 component
+	// Find the garlic32 component by iterating through all components.
+	// We must iterate because multiaddr can contain multiple protocols (e.g., /garlic32/.../tcp/...)
+	// and we need to find the specific garlic32 protocol component.
 	var garlicValue string
 	for _, comp := range components {
+		// Each component may have multiple protocols, but typically has one.
+		// We check if the first protocol in this component is garlic32 (code 456).
 		protocols := comp.Protocols()
-		if len(protocols) > 0 && protocols[0].Code == P_GARLIC32 {
-			// Get the value for this component
-			val, err := comp.ValueForProtocol(P_GARLIC32)
+		if len(protocols) > 0 && protocols[0].Code == PGarlic32 {
+			// Extract the value associated with the garlic32 protocol.
+			// For /garlic32/abc.b32.i2p, this returns "abc.b32.i2p"
+			val, err := comp.ValueForProtocol(PGarlic32)
 			if err != nil {
 				return "", 0, fmt.Errorf("i2p: failed to get garlic32 value: %w", err)
 			}
@@ -63,19 +69,25 @@ func parseGarlicMultiaddr(addr ma.Multiaddr) (string, int, error) {
 	// Get the value of the garlic32 address
 	value := garlicValue
 
-	// Ensure the address has the .b32.i2p suffix
+	// Ensure the address has the .b32.i2p suffix. I2P base32 addresses must end with .b32.i2p
+	// to be recognized by the I2P router. If the user provided just the base32 part, append the suffix.
 	if !strings.HasSuffix(value, ".b32.i2p") {
 		value = value + ".b32.i2p"
 	}
 
-	// Check for a port in the multiaddr (looking for tcp component)
+	// Check for a port in the multiaddr by searching for a tcp component.
+	// I2P uses virtual ports (FROM_PORT/TO_PORT system) where ports don't correspond to
+	// actual network ports but serve as identifiers for different services on the same destination.
+	// If no port is specified, we return 0 to indicate default behavior.
 	port := 0
 	for _, comp := range components {
 		protocols := comp.Protocols()
 		for _, p := range protocols {
+			// Look for the tcp protocol component which carries the port number
 			if p.Name == "tcp" {
 				portStr, err := comp.ValueForProtocol(p.Code)
 				if err == nil {
+					// Parse the port string into an integer
 					fmt.Sscanf(portStr, "%d", &port)
 				}
 				break
@@ -96,7 +108,7 @@ func isGarlicMultiaddr(addr ma.Multiaddr) bool {
 	for _, comp := range components {
 		protocols := comp.Protocols()
 		for _, p := range protocols {
-			if p.Code == P_GARLIC32 {
+			if p.Code == PGarlic32 {
 				return true
 			}
 		}

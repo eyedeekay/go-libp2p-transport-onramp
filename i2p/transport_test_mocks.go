@@ -1,3 +1,22 @@
+// Package i2p provides mock implementations for testing the I2P transport.
+//
+// Mock Types:
+//
+//   - mockGarlic: Simulates onramp.Garlic interface for unit testing transport logic
+//     without requiring a real I2P router. Supports configurable callbacks for
+//     DialContext, Listen, String, and Close operations.
+//
+//   - mockResourceManager: Simulates network.ResourceManager for testing connection
+//     lifecycle and resource tracking without actual resource enforcement.
+//
+//   - mockConnScope: Simulates network.ConnManagementScope for testing connection
+//     scoping and resource cleanup.
+//
+// Usage:
+//
+//	These mocks allow unit tests to verify transport behavior in isolation,
+//	without external dependencies on I2P SAM bridge or libp2p infrastructure.
+//	For integration tests with a real I2P router, see integration_test.go.
 package i2p
 
 import (

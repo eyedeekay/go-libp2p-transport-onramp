@@ -1,6 +1,24 @@
 //go:build integration
 // +build integration
 
+// Package i2p_test contains integration tests for the I2P transport.
+//
+// Prerequisites:
+//   - I2P router running with SAM bridge enabled on localhost:7656
+//   - Install: Download from geti2p.net or apt-get install i2p
+//   - Configure: Enable SAM bridge in router console (http://127.0.0.1:7657/configclients)
+//   - SAM must listen on 127.0.0.1:7656 (default)
+//
+// To run these tests:
+//
+//	go test -v -tags=integration ./i2p
+//
+// What these tests validate:
+//   - Transport creation connects to I2P SAM bridge
+//   - Listener creates valid base32 I2P destinations
+//   - End-to-end peer-to-peer communication over I2P
+//   - Virtual port support (FROM_PORT/TO_PORT)
+//   - Message passing between peers via I2P garlic routing
 package i2p_test
 
 import (

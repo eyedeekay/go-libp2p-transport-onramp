@@ -1,3 +1,26 @@
+// Package i2p implements a libp2p transport for I2P's garlic routing network.
+//
+// Code Duplication Note:
+//
+// This package shares significant logic with the tor package (listener Accept flow,
+// connection upgrade patterns, resource management). This duplication is INTENTIONAL
+// to maintain package independence and clarity.
+//
+// Reasons for duplication:
+//   - Tor and I2P are fundamentally different networks with distinct APIs and semantics
+//   - Separate packages allow network-specific optimizations without cross-contamination
+//   - Reduces coupling between tor and i2p implementations
+//   - Makes each package independently understandable and testable
+//   - Simplifies maintenance when one network requires changes the other doesn't
+//
+// Extracting shared logic to a common package would:
+//   - Introduce coupling between tor and i2p
+//   - Complicate network-specific customizations
+//   - Make each package less self-contained
+//   - Add indirection that obscures the control flow
+//
+// The duplication is acceptable given the modest codebase size (~850 LOC total) and
+// the architectural benefits of package independence.
 package i2p
 
 import (
@@ -21,28 +44,39 @@ type listener struct {
 // Accept waits for and returns the next connection to the listener.
 // The returned connection is upgraded with security and multiplexing.
 func (l *listener) Accept() (transport.CapableConn, error) {
-	// Accept the raw connection
+	// Step 1: Accept the raw I2P streaming connection from the SAM bridge.
+	// This gives us a net.Conn that carries I2P garlic-routed traffic, but it's not yet
+	// integrated with libp2p's security and multiplexing layers.
 	rawConn, err := l.Listener.Accept()
 	if err != nil {
 		return nil, err
 	}
 
-	// Wrap in manet.Conn
+	// Step 2: Wrap the raw connection in a multiaddr-aware connection (manet.Conn).
+	// This allows us to associate the connection with its multiaddr endpoints, which
+	// libp2p uses for addressing and routing.
 	maConn, err := manet.WrapNetConn(rawConn)
 	if err != nil {
 		rawConn.Close()
 		return nil, fmt.Errorf("i2p: failed to wrap connection: %w", err)
 	}
 
-	// Create a connection scope
+	// Step 3: Create a resource manager scope for this connection.
+	// The resource manager tracks and limits system resources (memory, file descriptors, etc.)
+	// used by libp2p connections. We specify DirInbound to indicate this is an incoming connection.
 	connScope, err := l.transport.rcmgr.OpenConnection(network.DirInbound, false, l.laddr)
 	if err != nil {
 		maConn.Close()
 		return nil, fmt.Errorf("i2p: failed to open connection scope: %w", err)
 	}
 
-	// Upgrade the connection
-	// For inbound connections, we don't know the peer ID yet
+	// Step 4: Upgrade the connection with security and multiplexing.
+	// The upgrader performs:
+	//   - Security handshake (noise or tls) to encrypt the connection and authenticate peers
+	//   - Stream multiplexing (yamux or mplex) to allow multiple logical streams over one connection
+	//   - Peer ID verification to ensure we're talking to the expected peer
+	// For inbound connections, we don't know the peer ID in advance (empty string ""),
+	// so the upgrader will extract it from the security handshake.
 	ctx := context.Background()
 	conn, err := l.transport.upgrader.Upgrade(ctx, l.transport, maConn, network.DirInbound, "", connScope)
 	if err != nil {
@@ -51,7 +85,10 @@ func (l *listener) Accept() (transport.CapableConn, error) {
 		return nil, fmt.Errorf("i2p: upgrade failed: %w", err)
 	}
 
-	// Track the connection for proper cleanup on transport Close
+	// Step 5: Track the connection for proper cleanup.
+	// When the transport is closed, we need to close all active connections.
+	// The trackConnection wrapper ensures this connection is automatically unregistered
+	// from the transport's connection registry when closed.
 	wrappedConn := l.transport.trackConnection(conn)
 
 	return wrappedConn, nil

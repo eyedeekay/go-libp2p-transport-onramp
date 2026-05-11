@@ -1,3 +1,22 @@
+// Package tor provides mock implementations for testing the Tor transport.
+//
+// Mock Types:
+//
+//   - mockOnion: Simulates onramp.Onion interface for unit testing transport logic
+//     without requiring a real Tor daemon. Supports configurable callbacks for
+//     Dial, Listen, Keys, and Close operations.
+//
+//   - mockResourceManager: Simulates network.ResourceManager for testing connection
+//     lifecycle and resource tracking without actual resource enforcement.
+//
+//   - mockConnScope: Simulates network.ConnManagementScope for testing connection
+//     scoping and resource cleanup.
+//
+// Usage:
+//
+//	These mocks allow unit tests to verify transport behavior in isolation,
+//	without external dependencies on Tor or libp2p infrastructure. For integration
+//	tests with real Tor, see integration_test.go.
 package tor
 
 import (
